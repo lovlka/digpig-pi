@@ -49,6 +49,15 @@ KEYS = [
     'LCD_OY',          # offset y
     'LCD_INVERT',      # 0/1
     'LCD_BL_ACTIVE',   # 1 if active-high, 0 if active-low
+    'BTN_UP',         # joystick up (BCM)
+    'BTN_DOWN',       # joystick down (BCM)
+    'BTN_LEFT',       # joystick left (BCM)
+    'BTN_RIGHT',      # joystick right (BCM)
+    'BTN_CENTER',     # joystick press (BCM)
+    'BTN_A',          # button A (if present)
+    'BTN_B',          # button B (if present)
+    'BTN_ACTIVE_LOW', # 1 if buttons are active-low
+    'BTN_DEBOUNCE_MS',# debounce in ms
 ]
 
 DEFAULTS = {
@@ -67,6 +76,16 @@ DEFAULTS = {
     'LCD_OY': '3',
     'LCD_INVERT': '0',
     'LCD_BL_ACTIVE': '1',
+    # Button defaults (Waveshare 1.44" HAT typical)
+    'BTN_UP': '6',
+    'BTN_DOWN': '19',
+    'BTN_LEFT': '5',
+    'BTN_RIGHT': '26',
+    'BTN_CENTER': '13',
+    'BTN_A': '21',
+    'BTN_B': '20',
+    'BTN_ACTIVE_LOW': '1',
+    'BTN_DEBOUNCE_MS': '50',
 }
 
 def parse_kv_args(args):

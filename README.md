@@ -144,6 +144,29 @@ If your backlight is active-low and stays on, try:
 LCD_BL_ACTIVE=0 python3 lcd-off.py
 ```
 
+## Read buttons and joystick
+This script logs button/joystick events to the console. Defaults assume the Waveshare 1.44" LCD HAT.
+- Defaults (BCM): UP=6, DOWN=19, LEFT=5, RIGHT=26, CENTER=13, A=21, B=20; active-low with pull-ups.
+- You can override pins in lcd.env via keys: BTN_UP, BTN_DOWN, BTN_LEFT, BTN_RIGHT, BTN_CENTER, BTN_A, BTN_B, BTN_ACTIVE_LOW (1/0), BTN_DEBOUNCE_MS.
+- Tip: set any BTN_* to -1 in lcd.env to disable that button (useful if a pin is reserved or not present on your HAT).
+- If edge detection cannot be set on a pin (kernel/driver conflict), the script auto-falls back to polling that pin and will still log events.
+
+Usage:
+```
+python3 lcd-input.py
+```
+Press buttons while watching the SSH console; you should see lines like:
+```
+[12:34:56.789] [input] BTN_UP pressed
+[12:34:56.950] [input] BTN_UP released
+```
+
+Troubleshooting buttons:
+- GPIO20/21 can be used by some configurations (I2C or other overlays). If you get “Failed to add edge detection” for BTN_B (GPIO20) or BTN_A (GPIO21):
+  - Either let the script’s polling fallback handle it, or
+  - Reassign BTN_B/BTN_A to a free BCM pin in lcd.env, or set to -1 to disable.
+  - Ensure no other process exports or uses those pins.
+
 ## Usable commands
 ```
 ping digpig.local
