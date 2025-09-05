@@ -167,6 +167,42 @@ Troubleshooting buttons:
   - Reassign BTN_B/BTN_A to a free BCM pin in lcd.env, or set to -1 to disable.
   - Ensure no other process exports or uses those pins.
 
+## Auto-start on boot (systemd)
+This service is configured to run your script using the project's virtualenv at /home/victor/lcd-test/venv so all Python packages are found.
+
+1) Prepare the venv and install dependencies (run on the Pi):
+```
+cd ~/lcd-test
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install st7735 pillow RPi.GPIO
+```
+
+2) Install the service and enable it:
+```
+sudo cp ~/lcd-test/digpig-hello.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable digpig-hello.service
+sudo systemctl start digpig-hello.service
+```
+
+3) Check status/logs:
+```
+systemctl status digpig-hello.service
+journalctl -u digpig-hello.service -f
+```
+
+Notes:
+- The service runs ExecStart=/home/victor/lcd-test/venv/bin/python /home/victor/lcd-test/hello-on-center.py and sets PATH to the venv bin. If your username or path differs, edit digpig-hello.service accordingly.
+- If you see ModuleNotFoundError or ImportError in logs, verify the venv path and that dependencies are installed inside that venv.
+
+Manual run (without service):
+```
+source ~/lcd-test/venv/bin/activate
+python3 hello-on-center.py
+```
+
 ## Usable commands
 ```
 ping digpig.local
