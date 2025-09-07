@@ -203,6 +203,43 @@ source ~/lcd-test/venv/bin/activate
 python3 hello-on-center.py
 ```
 
+## Web server (Flask) to display text via HTTP
+Endpoints:
+- POST /display with JSON {"text":"Hej"} to show text on LCD
+- GET /display returns current text
+- GET /health returns status
+
+Run once (in venv):
+```
+cd ~/lcd-test
+source venv/bin/activate
+pip install flask st7735 pillow RPi.GPIO
+LCD_PRESET=waveshare FLASK_PORT=8080 python3 flask_server.py
+```
+
+Send a message from another device on the network:
+```
+curl -X POST http://digpig.local:8080/display -H 'Content-Type: application/json' -d '{"text":"Hej från appen"}'
+```
+
+Auto-start on boot:
+```
+sudo cp ~/lcd-test/digpig-web.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable digpig-web.service
+sudo systemctl start digpig-web.service
+```
+
+Logs:
+```
+journalctl -u digpig-web.service -f
+```
+
+Notes:
+- Configure pins and options in ~/lcd-test/lcd.env (same keys as lcd-test.py), e.g. LCD_PRESET=waveshare.
+- Default listen: 0.0.0.0:8080. Change via FLASK_HOST/FLASK_PORT in lcd.env.
+- If you need CORS for a web app, you can reverse proxy via nginx or add Flask-Cors.
+
 ## Usable commands
 ```
 ping digpig.local

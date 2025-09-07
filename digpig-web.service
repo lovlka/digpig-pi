@@ -1,0 +1,19 @@
+[Unit]
+Description=DigPig Flask LCD Web Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust these paths if your user or project dir differs
+User=victor
+WorkingDirectory=/home/victor/lcd-test
+Environment=PATH=/home/victor/lcd-test/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+# Load env vars for LCD pins and Flask config from an env file if present
+EnvironmentFile=-/home/victor/lcd-test/lcd.env
+ExecStart=/home/victor/lcd-test/venv/bin/python /home/victor/lcd-test/flask_server.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
