@@ -71,6 +71,9 @@ LCD_DC=25 LCD_BL=18 python3 lcd-test.py
 
 Note: The script auto-detects the st7735 library capabilities. If your installed version doesn’t support extended init kwargs (offsets/invert/backlight polarity), it will fall back to a minimal init and then try to apply invert/backlight at runtime where possible.
 
+## Vendor driver helper (optional)
+If you cloned the repo with the 1.44inch-LCD-HAT-Code vendor folder present, the new lcd_util.py will automatically use it for tasks like clearing the screen and setting backlight brightness. Scripts such as lcd-off.py will prefer the vendor driver when available.
+
 ## One-time configuration
 You can save your LCD settings once and reuse them automatically:
 
@@ -131,6 +134,7 @@ LCD_PRESET=waveshare144 python3 lcd-test.py "Hello DigPig!"
 ```
 
 ## Turn screen off (clear and backlight off)
+The scripts now auto-use the bundled Waveshare vendor driver when available (for better backlight control), and fall back to the st7735 pip driver otherwise.
 Use the minimal off script to blank the LCD and switch the backlight off:
 ```
 python3 lcd-off.py

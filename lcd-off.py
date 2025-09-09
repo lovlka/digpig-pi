@@ -19,6 +19,15 @@ import sys
 from pathlib import Path
 from PIL import Image
 
+# Prefer vendor driver if available via lcd_util
+try:
+    import lcd_util  # local helper wrapping vendor code
+    if lcd_util.vendor_off_if_available():
+        print("[lcd-off] used vendor driver to clear and turn backlight off.")
+        sys.exit(0)
+except Exception:
+    pass
+
 try:
     import st7735
 except ImportError:
