@@ -1,21 +1,16 @@
 [Unit]
-Description=DigPig Hello on Center button (Waveshare 1.44" ST7735S)
+Description=DigPig Hello (compat wrapper) — combined into web server
 After=network-online.target
-Wants=network-online.target
+Wants=network-online.target digpig-web.service
+PartOf=digpig-web.service
 
 [Service]
-Type=simple
-WorkingDirectory=/home/victor/lcd-test
-# Run with the project's virtualenv so Python packages are found
-Environment="VIRTUAL_ENV=/home/victor/lcd-test/venv"
-Environment="PATH=/home/victor/lcd-test/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
-ExecStart=/home/victor/lcd-test/venv/bin/python /home/victor/lcd-test/hello-on-center.py
-Restart=on-failure
+Type=oneshot
+RemainAfterExit=yes
+# Start/ensure the combined web service is running; this service does nothing itself
+ExecStart=/bin/true
 User=victor
 Group=victor
-
-# Give access to GPIO/SPI
-AmbientCapabilities=CAP_SYS_RAWIO
 
 [Install]
 WantedBy=multi-user.target

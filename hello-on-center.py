@@ -27,10 +27,7 @@ WIDTH, HEIGHT = 128, 128
 OX, OY = 2, 3
 BTN_CENTER = 13  # joystick press
 
-# Init GPIO
-GPIO.setwarnings(False)
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(BTN_CENTER, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # active-low
+# GPIO setup for the button will be handled by button_util.watch_button
 
 # Init display
 try:
@@ -90,25 +87,19 @@ bl(False)
 
 print("[hello-on-center] Ready. Press CENTER to show 'Hello'. Ctrl+C to exit.")
 
-# Simple polling loop with debounce
-DEBOUNCE_MS = 150
-last = GPIO.input(BTN_CENTER)
-last_change = 0.0
+# Use shared button watcher
+from button_util import watch_button
+
+
+def on_press():
+    bl(True)
+    show_hello()
+    time.sleep(5)
+    show_black()
+    bl(False)
 
 try:
-    while True:
-        val = GPIO.input(BTN_CENTER)  # LOW when pressed
-        now = time.time() * 1000
-        if val != last and (now - last_change) > DEBOUNCE_MS:
-            last_change = now
-            last = val
-            if val == GPIO.LOW:  # pressed
-                bl(True)
-                show_hello()
-                time.sleep(5)
-                show_black()
-                bl(False)
-        time.sleep(0.02)
+    watch_button(BTN_CENTER, on_press=on_press, debounce_ms=150, poll_interval_s=0.02, pull_up=True)
 except KeyboardInterrupt:
     pass
 finally:
@@ -118,5 +109,8 @@ finally:
         bl(False)
     except Exception:
         pass
-    GPIO.cleanup()
+    try:
+        GPIO.cleanup()
+    except Exception:
+        pass
     print("[hello-on-center] Exiting.")

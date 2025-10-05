@@ -1,0 +1,14 @@
+# Python dependencies for DigPig Pi project
+# Install on Raspberry Pi inside your virtualenv:
+#   python3 -m venv venv
+#   source venv/bin/activate
+#   pip install --upgrade pip
+#   pip install -r requirements.txt
+#
+# Notes:
+# - RPi.GPIO is only available on Raspberry Pi OS; installing on non-Pi will fail.
+# - st7735 requires SPI enabled on the Pi.
+Flask>=2.2
+Pillow>=9.0
+st7735
+RPi.GPIO; platform_system == "Linux" and platform_machine in "armv7l,armv6l,aarch64,arm64"

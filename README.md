@@ -17,7 +17,8 @@ Show a custom message on a Raspberry Pi Zero 2 W using a 1.44" 120x120 ST7735 LC
    - `mkdir ~/lcd-test && cd ~/lcd-test`
    - `python3 -m venv venv`
    - `source venv/bin/activate`
-   - `pip install st7735 pillow`
+   - `pip install --upgrade pip`
+   - `pip install -r requirements.txt`
 4. Copy script to PI
    - `scp ./lcd-test.py victor@digpig.local:~/lcd-test/`
 
@@ -46,7 +47,7 @@ LCD_DC=25 LCD_BL=18 LCD_ROT=0 python3 lcd-test.py "Hej Pi!"
 ## Notes
 - Some 1.44" modules are physically 128x128 with a 120x120 visible area. If nothing shows or it’s shifted, try offsets and size.
 - If text appears rotated or off-screen, try `LCD_ROT=0`, `90`, `180`, or `270`.
-- If you get `ImportError: st7735`, install it in your venv: `pip install st7735`.
+- If you get `ImportError: st7735` or `ModuleNotFoundError: flask`, install dependencies in your venv: `pip install -r requirements.txt`.
 
 ## Troubleshooting: nothing on screen
 Try these in order (run one command per try):
@@ -180,7 +181,7 @@ cd ~/lcd-test
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
-pip install st7735 pillow RPi.GPIO
+pip install -r requirements.txt
 ```
 
 2) Install the service and enable it:
@@ -207,17 +208,28 @@ source ~/lcd-test/venv/bin/activate
 python3 hello-on-center.py
 ```
 
-## Web server (Flask) to display text via HTTP
+## Combined service: Web API + Button press (random amount)
+Note: Button monitoring logic is now shared via button_util.py and reused by both hello-on-center.py and flask_server.py to avoid duplication.
+The Flask server now also listens to the Waveshare center button (BCM13) in a background thread. When pressed, it briefly shows a random amount (e.g. "123 kr") centered on the screen — like the old hello-on-center service — and then restores the previous text.
+
 Endpoints:
 - POST /display with JSON {"text":"Hej"} to show text on LCD
 - GET /display returns current text
 - GET /health returns status
 
+Button behavior env vars (optional):
+- BTN_ENABLE=1 to enable button thread (default 1)
+- BTN_PIN=13 (center press)
+- BTN_DEBOUNCE_MS=150
+- BTN_SHOW_MS=5000 (how long to show random amount)
+- BTN_MIN=100, BTN_MAX=999, BTN_SUFFIX=" kr"
+- BTN_RESTORE_PREV=1 to re-display previous text after BTN_SHOW_MS (set 0 to clear and turn off backlight)
+
 Run once (in venv):
 ```
 cd ~/lcd-test
 source venv/bin/activate
-pip install flask st7735 pillow RPi.GPIO
+pip install -r requirements.txt
 LCD_PRESET=waveshare FLASK_PORT=8080 python3 flask_server.py
 ```
 
@@ -226,9 +238,10 @@ Send a message from another device on the network:
 curl -X POST http://digpig.local:8080/display -H 'Content-Type: application/json' -d '{"text":"Hej från appen"}'
 ```
 
-Auto-start on boot:
+Auto-start on boot (combined):
 ```
 sudo cp ~/lcd-test/digpig-web.service /etc/systemd/system/
+sudo cp ~/lcd-test/digpig-hello.service /etc/systemd/system/   # optional compat wrapper
 sudo systemctl daemon-reload
 sudo systemctl enable digpig-web.service
 sudo systemctl start digpig-web.service
@@ -242,7 +255,7 @@ journalctl -u digpig-web.service -f
 Notes:
 - Configure pins and options in ~/lcd-test/lcd.env (same keys as lcd-test.py), e.g. LCD_PRESET=waveshare.
 - Default listen: 0.0.0.0:8080. Change via FLASK_HOST/FLASK_PORT in lcd.env.
-- If you need CORS for a web app, you can reverse proxy via nginx or add Flask-Cors.
+- The old hello service is now a no-op compat wrapper and no longer owns the LCD. It is safe to enable only digpig-web.service.
 
 ## Usable commands
 ```

@@ -18,20 +18,14 @@ Install:
 Run:
   LCD_PRESET=waveshare FLASK_PORT=8080 python3 flask_server.py
 """
-import json
 import os
 import threading
 from pathlib import Path
-from typing import Optional
-
 from flask import Flask, jsonify, request
 from PIL import Image, ImageDraw, ImageFont
-
-# Try to import st7735; fail with clear error if missing
-try:
-    import st7735
-except ImportError as e:
-    raise SystemExit("st7735 not installed. pip install st7735") from e
+from display import render_centered_text_hello_style, render_centered_text_server_style, choose_font
+import st7735
+import time
 
 # Load env file like lcd-test.py does
 
@@ -89,28 +83,37 @@ if PRESET in ("waveshare144", "waveshare-1.44", "waveshare"):
         OFFSET_Y = 3
 
 # Initialize display one time
+# Only include keys supported by installed st7735 version.
+# Older versions don't support backlight_active_high/invert/offsets/size.
+# Build a minimal kwargs and then extend conservatively.
+base_kwargs = dict(port=PORT, cs=CS, dc=DC, backlight=BL, rotation=ROT, spi_speed_hz=SPEED)
+# Try richer kwargs first
+rich_kwargs = dict(base_kwargs)
+rich_kwargs.update(dict(
+    width=WIDTH,
+    height=HEIGHT,
+    offset_left=OFFSET_X,
+    offset_top=OFFSET_Y,
+    invert=INVERT,
+))
+# Try to pass backlight_active_high only if accepted
 try:
-    kwargs = dict(
-        port=PORT,
-        cs=CS,
-        dc=DC,
-        backlight=BL,
-        rotation=ROT,
-        spi_speed_hz=SPEED,
-        width=WIDTH,
-        height=HEIGHT,
-        offset_left=OFFSET_X,
-        offset_top=OFFSET_Y,
-        invert=INVERT,
-    )
-    kwargs["backlight_active_high"] = BL_ACTIVE_HIGH
-    if RST >= 0:
-        kwargs["rst"] = RST
-    disp = st7735.ST7735(**kwargs)
+    disp = st7735.ST7735(**{**rich_kwargs, "backlight_active_high": BL_ACTIVE_HIGH, **({"rst": RST} if RST >= 0 else {})})
 except TypeError:
-    disp = st7735.ST7735(port=PORT, cs=CS, dc=DC, backlight=BL, rotation=ROT, spi_speed_hz=SPEED)
+    # Drop backlight_active_high if unsupported; also handle very old versions by falling back further
+    try:
+        disp = st7735.ST7735(**{**rich_kwargs, **({"rst": RST} if RST >= 0 else {})})
+    except TypeError:
+        # Fallback to minimal set supported by very old releases
+        disp = st7735.ST7735(**base_kwargs)
 
-disp.begin()
+try:
+    disp.begin()
+except OSError as e:
+    # Provide a clearer message if GPIO lines are busy (e.g., another service running)
+    if getattr(e, 'errno', None) == 16 or 'Device or resource busy' in str(e):
+        raise SystemExit("GPIO busy. Another process/service is using the LCD pins. Stop it (e.g. systemctl stop digpig-hello.service) and try again.") from e
+    raise
 # Try to turn on backlight if supported
 try:
     disp.set_backlight(True)
@@ -126,51 +129,13 @@ current_text: str = ""
 
 
 def _choose_font(message: str):
-    try:
-        font_paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        ]
-        font_path = next((p for p in font_paths if os.path.exists(p)), None)
-        if not font_path:
-            return ImageFont.load_default()
-        # Binary search size
-        draw = ImageDraw.Draw(Image.new('RGB', (width, height)))
-        min_size, max_size = 6, height
-        best = ImageFont.truetype(font_path, 12)
-        while min_size <= max_size:
-            mid = (min_size + max_size) // 2
-            f = ImageFont.truetype(font_path, mid)
-            bbox = draw.textbbox((0, 0), message, font=f)
-            tw, th = bbox[2]-bbox[0], bbox[3]-bbox[1]
-            if tw <= width - 8 and th <= height - 8:
-                best = f
-                min_size = mid + 1
-            else:
-                max_size = mid - 1
-        return best
-    except Exception:
-        return ImageFont.load_default()
+    # Delegate to shared display helper for consistent sizing
+    return choose_font(message, (width, height))
 
 
 def render_text(message: str):
-    img = Image.new('RGB', (width, height), color=(0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    font = _choose_font(message)
-    bbox = draw.textbbox((0, 0), message, font=font)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    x = max(0, (width - tw) // 2)
-    y = max(0, (height - th) // 2)
-    padding = 2
-    bg_rect = (
-        max(0, x - padding),
-        max(0, y - padding),
-        min(width, x + tw + padding),
-        min(height, y + th + padding),
-    )
-    draw.rectangle(bg_rect, fill=(0, 0, 0))
-    draw.text((x, y), message, font=font, fill=(255, 255, 0))
-    disp.display(img)
+    # Use the same visual style as the hello service (white bg, black text)
+    render_centered_text_hello_style(disp, (width, height), message)
 
 
 app = Flask(__name__)
@@ -215,7 +180,68 @@ def post_display():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+# Optional: Button thread for random number on press
+try:
+    import RPi.GPIO as GPIO  # type: ignore
+except Exception:
+    GPIO = None  # RPi.GPIO not available (e.g., on dev machine)
+
+BTN_ENABLE = os.getenv('BTN_ENABLE', '1') in ("1", "true", "True", "yes", "on")
+BTN_PIN = int(os.getenv('BTN_PIN', '13'))  # Waveshare center press
+BTN_DEBOUNCE_MS = int(os.getenv('BTN_DEBOUNCE_MS', '150'))
+BTN_SHOW_MS = int(os.getenv('BTN_SHOW_MS', '5000'))
+BTN_SUFFIX = os.getenv('BTN_SUFFIX', ' kr')
+BTN_MIN = int(os.getenv('BTN_MIN', '100'))
+BTN_MAX = int(os.getenv('BTN_MAX', '999'))
+BTN_RESTORE_PREV = os.getenv('BTN_RESTORE_PREV', '1') in ("1", "true", "True", "yes", "on")
+
+
+def _bl(on: bool):
+    try:
+        disp.set_backlight(on)
+    except Exception:
+        pass
+
+
+def render_random_amount():
+    import random
+    msg = f"{random.randint(BTN_MIN, BTN_MAX)}{BTN_SUFFIX}"
+    render_centered_text_hello_style(disp, (width, height), msg)
+    return msg
+
+
+def _button_loop():
+    # Use shared button watcher
+    from button_util import watch_button
+    if GPIO is None:
+        return
+
+    def on_press():
+        prev = None
+        with state_lock:
+            prev = current_text
+        _bl(True)
+        shown = render_random_amount()
+        time.sleep(BTN_SHOW_MS / 1000.0)
+        if BTN_RESTORE_PREV:
+            with state_lock:
+                render_text(prev or "")
+        else:
+            # Clear to black
+            disp.display(Image.new('RGB', (width, height), (0, 0, 0)))
+            _bl(False)
+
+    try:
+        watch_button(BTN_PIN, on_press=on_press, debounce_ms=BTN_DEBOUNCE_MS, poll_interval_s=0.02, pull_up=True)
+    except Exception:
+        pass
+
+
 if __name__ == '__main__':
+    # Start button thread first so it can run alongside Flask
+    if BTN_ENABLE and GPIO is not None:
+        t = threading.Thread(target=_button_loop, name='btn-loop', daemon=True)
+        t.start()
     host = os.getenv('FLASK_HOST', '0.0.0.0')
     port = int(os.getenv('FLASK_PORT', '8080'))
     debug = os.getenv('FLASK_DEBUG', '0') in ("1", "true", "True", "yes", "on")
