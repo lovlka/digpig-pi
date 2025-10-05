@@ -9,6 +9,7 @@ Dependencies: pip install st7735 pillow RPi.GPIO
 """
 import sys
 import time
+import random
 
 import RPi.GPIO as GPIO
 from PIL import Image, ImageDraw, ImageFont
@@ -70,7 +71,8 @@ def show_hello():
     # White background
     img = Image.new('RGB', (W, H), (255, 255, 255))
     draw = ImageDraw.Draw(img)
-    msg = "Hello"
+    # Generate random 3-digit number followed by ' kr'
+    msg = f"{random.randint(100, 999)} kr"
     # Try a larger font, fall back to default
     try:
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
