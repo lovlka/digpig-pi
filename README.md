@@ -1,9 +1,6 @@
 # Raspberry PI playground
 
-## Goal
-Show a custom message on a Raspberry Pi Zero 2 W using a 1.44" 120x120 ST7735 LCD HAT.
-
-## Actions taken so far
+## Configuration
 1. Created image with Raspberry Pi Imager
    - Raspberry Pi OS (x64) Desktop
    - User/Pass: victor/lovlka
@@ -21,6 +18,8 @@ Show a custom message on a Raspberry Pi Zero 2 W using a 1.44" 120x120 ST7735 LC
    - `pip install -r requirements.txt`
 4. Copy script to PI
    - `scp ./lcd-test.py victor@digpig.local:~/lcd-test/`
+5. Setup PI for SSH over USB
+   - https://gist.github.com/etoxin/d96418f0732c0de36f0f3c22f9bdd75d
 
 ## Wiring / Pins
 The defaults in `lcd-test.py` suit many Pimoroni/clone ST7735 1.44" HATs:
@@ -256,10 +255,3 @@ Notes:
 - Configure pins and options in ~/lcd-test/lcd.env (same keys as lcd-test.py), e.g. LCD_PRESET=waveshare.
 - Default listen: 0.0.0.0:8080. Change via FLASK_HOST/FLASK_PORT in lcd.env.
 - The old hello service is now a no-op compat wrapper and no longer owns the LCD. It is safe to enable only digpig-web.service.
-
-## Usable commands
-```
-ping digpig.local
-ssh victor@digpig.local
-sudo apt update && sudo apt upgrade -y
-```
